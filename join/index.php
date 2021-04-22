@@ -1,23 +1,52 @@
 <?php
+session_start();
+require('../dbconnect.php');
 // エラーチェック
-if($_POST['name']===''){
-	$error['name'] = 'blank';
-}
-if($_POST['email']===''){
-	$error['email'] = 'blank';
-}
-if(strlen($_POST['password']) < 4){
-	$error['password'] = 'length';
-}
-if($_POST['password']===''){
-	$error['password'] = 'blank';
-}
+if(!empty($_POST)){
+	if($_POST['name']===''){
+		$error['name'] = 'blank';
+	}
+	if($_POST['email']===''){
+		$error['email'] = 'blank';
+	}
+	if(strlen($_POST['password']) < 4){
+		$error['password'] = 'length';
+	}
+	if($_POST['password']===''){
+		$error['password'] = 'blank';
+	}
+	$fileName = $_FILES['image']['name'];
+	if(!empty($fileName)){	//画像がアップロードしているかのチェック
+		$ext = substr($fileName, -3);
+		if($ext != 'jpg' && $ext != 'png' && $ext != 'gif'){
+			$error['image'] = 'type';
+		}
+	}
 
-// $errorが空であるかチェックする
-if(empty($error)){
-	$_SESSION['join'] = $_POST;	//sessionに値を保存する
-	header('Location: check.php');	//check.phpに移動する
-	exit();
+	// アカウントの重複チェック
+	if(empty($error)){
+		$member = $db->prepare('SELECT COUNT(*) AS cnt FROM members WHERE email=?');
+		$member->execute(array($_POST['email']));
+		$record = $member->fetch();
+		if($record['cnt'] > 0){
+			$error['email'] = 'duplicate';
+		}
+	}
+
+	// $errorがないかチェックする
+	if(empty($error)){
+		$image = date('YmdHis') . $_FILES['image']['name'];	//画像ファイルの作成
+		move_uploaded_file($_FILES['image']['tmp_name'],
+		'../member_picture/' . $image);	//画像ファイルの保存先を指定する
+
+		$_SESSION['join'] = $_POST;	//sessionに値を保存する
+		$_SESSION['join']['image'] = $image; //sessionに画像を保存する
+		header('Location: check.php');	//check.phpに移動する
+		exit();
+	}
+}
+if($_REQUEST['action'] == 'rewrite' && isset($_SESSION['join'])){
+	$_POST = $_SESSION['join'];
 }
 ?>
 <!DOCTYPE html>
@@ -57,6 +86,10 @@ if(empty($error)){
 			<?php if($error['email'] === 'blank'): ?>
         		<p class="error">＊メールアドレスを入力してください</p>
 			<?php endif; ?>
+			<!-- メールアドレス重複エラー -->
+			<?php if($error['email'] === 'duplicate'): ?>
+        		<p class="error">＊指定されたメールアドレスは、既に登録されています</p>
+			<?php endif; ?>
 		<dt>パスワード<span class="required">必須</span></dt>
 		<dd>
 			<!-- 入力された内容を保持する -->
@@ -73,6 +106,14 @@ if(empty($error)){
 		<dt>写真など</dt>
 		<dd>
         	<input type="file" name="image" size="35" value="test"  />
+			<!-- 画像ファイルが上がっているかチェックする -->
+			<?php if($error['image'] === 'type'): ?>
+        		<p class="error">＊写真などは「.gif」または「.jpg」「.png」の画像を指定してください</p>
+			<?php endif; ?>
+			<!--  -->
+			<?php if(!empty($error)): ?>
+				<p class="error">＊恐れ入りますが、画像を改めて指定してください</p>
+			<?php endif; ?>
         </dd>
 	</dl>
 	<div><input type="submit" value="入力内容を確認する" /></div>

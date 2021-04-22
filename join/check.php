@@ -1,7 +1,24 @@
 <?php
 session_start();
+require('../dbconnect.php');
+
 if(!isset($_SESSION['join'])){	//sessionに情報が入っていない場合に入力画面に戻す
 	header('Location: index.php');
+	exit();
+}
+
+if(!empty($_POST)){
+	// DBに会員情報を保存する
+	$statement = $db->prepare('INSERT INTO members SET name=?, email=?, password=?, picture=?, created=NOW()');
+	$statement->execute(array(
+		$_SESSION['join']['name'],
+		$_SESSION['join']['email'],
+		sha1($_SESSION['join']['password']),	//パスワードを暗号化する
+		$_SESSION['join']['image'],
+	));
+	unset($_SESSION['join']);
+
+	header('Location: thanks.php');
 	exit();
 }
 ?>
@@ -40,6 +57,10 @@ if(!isset($_SESSION['join'])){	//sessionに情報が入っていない場合に�
 		</dd>
 		<dt>写真など</dt>
 		<dd>
+		<!-- 確認画面に画像を表示する -->
+		<?php if($_SESSION['join']['image'] !== ''): ?>
+			<img src="../member_picture/<?php print(htmlspecialchars($_SESSION['join']['image'], ENT_QUOTES)); ?>">
+		<?php endif; ?>
 		</dd>
 	</dl>
 	<div><a href="index.php?action=rewrite">&laquo;&nbsp;書き直す</a> | <input type="submit" value="登録する" /></div>
